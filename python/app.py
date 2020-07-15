@@ -3,6 +3,7 @@ import time
 from responses.twitch_response import TwitchResponse, FollowersSet
 from rabbitmq.rabbitmq import RabbitPublisher
 import stomp
+from responses.twitter_response import TweepyAgent
 
 
 gaules = "181077473"
@@ -16,6 +17,11 @@ twitter_queue = "twitter"
 twitch_queue = "twitch"
 discord_queue = "discord"
 target_queues = [twitter_queue,twitch_queue,discord_queue]
+consumer_key = "9mmAxhtvOFwnRXTmbJZPWA5ni"
+consumer_secrect = "34QnAui1HntOu0k8PfcAsoRSZ6Hmo2CMzEinUeYOv35DpZIdGd"
+api_token = "2223109615-qcNgvDaak74ZLSdhP8AMcMvU2q0fBPVfcBfoSNG"
+api_secret = "vvEHtBs65Klp1FdeaoeMhfXwUS2n8ReaWnxnNSsCm4XdK"
+twitter_username = "twitch_gaardes" #"JundiaiShopping" #"ValorantUpdates"
 
 
 def main():
@@ -26,12 +32,21 @@ def main():
 
 
     # Initialize TwitchResponse
-    twitch_watcher = TwitchResponse(gaules,client_id,client_secret)
-
+    twitch_watcher = TwitchResponse(gaardes,client_id,client_secret)
 
     # Initialize FollowersSet
     last_follower_set = FollowersSet(twitch_watcher.get_followers())
     current_follower_set = FollowersSet(twitch_watcher.get_followers())
+
+
+    # Initialize Tweepy Agent
+    tweepy_agent = TweepyAgent(consumer_key,consumer_secrect,api_token,api_secret)
+
+    last_twitter_followers_count = tweepy_agent.get_followers_count(twitter_username)
+    current_twitter_followers_count = tweepy_agent.get_followers_count(twitter_username)
+    last_twitter_followers_set = tweepy_agent.get_last_followers(twitter_username)
+    current_twitter_followers_set = tweepy_agent.get_last_followers(twitter_username)
+
 
     # Initialize Live Status
     live_status = False
@@ -67,7 +82,7 @@ def main():
             while loops < new_followers_count:
                 print(current_follower_set.follower_list[loops])
                 for channel in target_queues:
-                    rabbit_publisher.basic_msg_send(channel,{"type": "new_followers"},str(current_follower_set.follower_list[loops]))
+                    rabbit_publisher.basic_msg_send(channel,{"type": "new_twitch_follower"},str(current_follower_set.follower_list[loops]))
                 loops+=1
 
 
@@ -75,7 +90,23 @@ def main():
         current_follower_set = FollowersSet(twitch_watcher.get_followers())
 
 
-        time.sleep(5)
+        # Check Twitter's Followers
+        if current_twitter_followers_count > last_twitter_followers_count:
+            last_followers_id_list = [follower["follower_id"] for follower in last_twitter_followers_set]
+
+            for follower in current_twitter_followers_set:
+                if follower["follower_id"] not in last_followers_id_list:
+                    message = str({'follower_id': follower["follower_id"], 'follower_name': follower["follower_name"], 'follower_screen_name': follower["follower_screen_name"]})
+                    rabbit_publisher.basic_msg_send(twitter_queue,{"type": "new_twitter_follower"},message)
+
+        last_twitter_followers_count = current_twitter_followers_count
+        last_twitter_followers_set = current_twitter_followers_set
+        current_twitter_followers_count = tweepy_agent.get_followers_count(twitter_username)
+        current_twitter_followers_set = tweepy_agent.get_last_followers(twitter_username)
+
+
+        time.sleep(30)
 
 if __name__ == '__main__':
-    main()
+    main()               
+                
