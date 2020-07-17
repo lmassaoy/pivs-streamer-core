@@ -1,0 +1,31 @@
+#
+version: "3.7"
+services:
+    rabbitmq:
+      image: rabbitmq:3.8.5-management-alpine
+      container_name: rabbit
+      env_file:
+        - ../env_vars/mq_env.list
+      restart: always
+      ports:
+        - 15672:15672
+        - 5672:5672
+      networks:
+        - internal
+
+    core:
+      image: lyamadadocker/pivs-streamer-core
+      container_name: pivs-streamer-core
+      env_file:
+        - ../env_vars/app_env.list
+      restart: always
+      depends_on:
+        - rabbitmq
+      networks:
+        - internal
+    
+
+networks:
+  internal:
+    name: PivsNetwork
+    driver: bridge
