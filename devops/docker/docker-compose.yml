@@ -13,6 +13,18 @@ services:
       networks:
         - internal
 
+    core:
+      image: lyamadadocker/pivs-streamer-core
+      container_name: pivs-streamer-core
+      env_file:
+        - ../env_vars/app_env.list
+      restart: always
+      depends_on:
+        - rabbitmq
+      networks:
+        - internal
+    
+
 networks:
   internal:
     name: PivsNetwork
